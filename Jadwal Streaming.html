@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Jadwal Petugas Streaming Bulanan</title>
+<style>
+  :root {
+    --primary-color: #4f46e5;
+    --secondary-color: #818cf8;
+    --bg-color: #f9fafb;
+    --text-color: #1f2937;
+    --card-bg: #ffffff;
+    --border-color: #e5e7eb;
+    --success-color: #22c55e;
+    --error-color: #ef4444;
+  }
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg-color);
+    margin: 0;
+    min-height: 100vh;
+    color: var(--text-color);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem 1rem 4rem;
+  }
+  h1 {
+    color: var(--primary-color);
+    margin-bottom: 0.2rem;
+    text-align: center;
+  }
+  .container {
+    background: var(--card-bg);
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgb(0 0 0 / 0.1);
+    max-width: 600px;
+    width: 100%;
+    padding: 1.5rem 2rem 2rem;
+  }
+  label {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    display: block;
+  }
+  textarea {
+    width: 100%;
+    min-height: 100px;
+    resize: vertical;
+    padding: 0.75rem;
+    font-size: 1rem;
+    border-radius: 6px;
+    border: 1.5px solid var(--border-color);
+    transition: border-color 0.3s ease;
+    font-family: inherit;
+  }
+  textarea:focus {
+    border-color: var(--primary-color);
+    outline: none;
+  }
+  .buttons {
+    margin-top: 1rem;
+    text-align: center;
+  }
+  button {
+    background: var(--primary-color);
+    color: white;
+    font-weight: 600;
+    padding: 0.7rem 1.6rem;
+    font-size: 1.1rem;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  button:hover {
+    background: var(--secondary-color);
+  }
+  .error-msg {
+    color: var(--error-color);
+    margin-top: 0.5rem;
+    font-weight: 600;
+    text-align: center;
+  }
+  .success-msg {
+    color: var(--success-color);
+    margin-top: 0.5rem;
+    font-weight: 600;
+    text-align: center;
+  }
+  table {
+    margin-top: 1.5rem;
+    width: 100%;
+    border-collapse: collapse;
+  }
+  th, td {
+    border: 1px solid var(--border-color);
+    padding: 0.6rem 1rem;
+    text-align: left;
+  }
+  th {
+    background-color: var(--primary-color);
+    color: white;
+  }
+  tbody tr:nth-child(even) {
+    background-color: #f3f4f6;
+  }
+  @media (max-width: 480px) {
+    .container {
+      max-width: 100%;
+      padding: 1rem 1rem 1.5rem;
+    }
+    button {
+      width: 100%;
+      font-size: 1rem;
+    }
+  }
+</style>
+</head>
+<body>
+  <h1>Jadwal Petugas Streaming Bulanan</h1>
+  <div class="container" role="main">
+    <label for="petugas-input">Masukkan nama petugas (pisahkan dengan baris baru):</label>
+    <textarea id="petugas-input" placeholder="Contoh:&#10;Andi&#10;Budi&#10;Sari&#10;Dewi"></textarea>
+    <div class="buttons">
+      <button id="generate-btn">Buat Jadwal</button>
+    </div>
+    <p id="message" role="alert" aria-live="polite"></p>
+    <table id="schedule-table" aria-label="Jadwal petugas streaming bulanan" hidden>
+      <thead>
+        <tr>
+          <th>Tanggal</th>
+          <th>Hari</th>
+          <th>Petugas 1</th>
+          <th>Petugas 2</th>
+        </tr>
+      </thead>
+      <tbody id="schedule-body"></tbody>
+    </table>
+  </div>
+
+<script>
+  function getSaturdaysAndSundays(year, month) {
+    // month: 0-based (0 = Januari)
+    const dates = [];
+    let date = new Date(year, month, 1);
+    while (date.getMonth() === month) {
+      const day = date.getDay();
+      if (day === 6 || day === 0) { // Sabtu=6, Minggu=0
+        dates.push(new Date(date));
+      }
+      date.setDate(date.getDate() + 1);
+    }
+    return dates;
+  }
+
+  function shuffleArray(array) {
+    // Fisher-Yates shuffle
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+  }
+
+  function formatDate(date) {
+    const d = date.getDate().toString().padStart(2, '0');
+    const m = (date.getMonth() + 1).toString().padStart(2, '0');
+    const y = date.getFullYear();
+    return `${d}/${m}/${y}`;
+  }
+
+  function dayName(date) {
+    return date.toLocaleDateString('id-ID', { weekday: 'long' });
+  }
+
+  document.getElementById('generate-btn').addEventListener('click', () => {
+    const petugasInput = document.getElementById('petugas-input').value.trim();
+    const messageEl = document.getElementById('message');
+    const scheduleTable = document.getElementById('schedule-table');
+    const scheduleBody = document.getElementById('schedule-body');
+    scheduleBody.innerHTML = '';
+    messageEl.textContent = '';
+    scheduleTable.hidden = true;
+
+    if (!petugasInput) {
+      messageEl.textContent = 'Masukkan minimal 2 nama petugas.';
+      messageEl.className = 'error-msg';
+      return;
+    }
+
+    const petugasList = petugasInput.split('\n').map(name => name.trim()).filter(Boolean);
+
+    if (petugasList.length < 2) {
+      messageEl.textContent = 'Harap masukkan minimal 2 nama petugas yang berbeda.';
+      messageEl.className = 'error-msg';
+      return;
+    }
+
+    // Schedule for current month
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth(); // 0-based
+
+    const weekendDates = getSaturdaysAndSundays(year, month);
+    if (weekendDates.length === 0) {
+      messageEl.textContent = 'Tidak ditemukan hari Sabtu atau Minggu pada bulan ini.';
+      messageEl.className = 'error-msg';
+      return;
+    }
+
+    // Assign 2 random petugas for each weekend date
+    for (const date of weekendDates) {
+      shuffleArray(petugasList);
+      const petugasAssigned = petugasList.slice(0, 2);
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${formatDate(date)}</td>
+        <td>${dayName(date)}</td>
+        <td>${petugasAssigned[0]}</td>
+        <td>${petugasAssigned[1]}</td>
+      `;
+      scheduleBody.appendChild(row);
+    }
+
+    messageEl.textContent = 'Jadwal berhasil dibuat!';
+    messageEl.className = 'success-msg';
+    scheduleTable.hidden = false;
+  });
+</script>
+</body>
+</html>
+
